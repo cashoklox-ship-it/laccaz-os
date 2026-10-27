@@ -1,0 +1,38 @@
+name: Build Laccaz OS preview
+
+on:
+  workflow_dispatch:
+
+jobs:
+  iso:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore executable permissions
+        run: |
+          chmod +x laccaz-os/auto/config
+          chmod +x laccaz-os/scripts/build.sh
+          chmod +x laccaz-os/config/hooks/normal/*.hook.chroot
+          chmod +x laccaz-os/config/includes.chroot/usr/bin/laccaz-*
+          chmod +x laccaz-os/config/includes.chroot/usr/share/laccaz/devhub.py
+
+      - name: Build in Debian 13 container
+        run: |
+          docker run --rm --privileged \
+            -v "$PWD/laccaz-os:/work" \
+            -w /work \
+            debian:trixie \
+            bash -c '
+              apt-get update &&
+              apt-get install -y live-build debootstrap debian-archive-keyring xorriso squashfs-tools dosfstools mtools syslinux-common isolinux grub-pc-bin grub-efi-amd64-bin ca-certificates &&
+              bash scripts/build.sh
+            '
+
+      - name: Upload ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: laccaz-os-0.1-amd64
+          path: laccaz-os/artifacts/
